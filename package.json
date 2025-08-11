@@ -30,10 +30,10 @@
   ],
   "author": "Bennafla Ridha <bennafla.riidha@gmail.com>",
   "license": "MIT",
-  "homepage": "https://github.com/your-username/loading-tracker",
+  "homepage": "https://github.com/riidha.bennafla/assets-loading-tracker",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-username/loading-tracker.git"
+    "url": "https://github.com/riidha.bennafla/assets-loading-tracker.git"
   },
   "peerDependencies": {
     "react": ">=16.8.0"
