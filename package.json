@@ -1,0 +1,52 @@
+{
+  "name": "assets-loading-tracker",
+  "version": "1.0.0",
+  "description": "A React hook for tracking asset loading progress (images, fonts, videos)",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "dev": "tsc --watch",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "keywords": [
+    "react",
+    "hooks",
+    "loading",
+    "progress",
+    "assets",
+    "preloader",
+    "typescript",
+    "images",
+    "fonts",
+    "videos"
+  ],
+  "author": "Bennafla Ridha <bennafla.riidha@gmail.com>",
+  "license": "MIT",
+  "homepage": "https://github.com/your-username/loading-tracker",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/loading-tracker.git"
+  },
+  "peerDependencies": {
+    "react": ">=16.8.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.4",
+    "@testing-library/react": "^16.3.0",
+    "@types/jest": "^30.0.0",
+    "@types/react": "^19.1.1",
+    "jest": "^30.0.0",
+    "jest-environment-jsdom": "^30.0.5",
+    "jsdom": "^26.1.0",
+    "ts-jest": "^29.4.1",
+    "typescript": "^5.6.0"
+  }
+}
