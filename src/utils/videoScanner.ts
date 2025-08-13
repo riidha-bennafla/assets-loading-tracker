@@ -1,164 +1,274 @@
+import { Dispatch, SetStateAction } from "react";
+
 /**
- * Automatically scans and tracks all video elements on the current page
+ * Automatically detects and tracks loading progress of video elements on the page
  *
- * This function provides automatic detection and progress tracking for all `<video>` elements
- * in the DOM. It handles videos in different loading states and includes timeout protection
- * to prevent progress tracking from getting stuck on problematic videos.
+ * This scanner provides comprehensive monitoring of all `<video>` elements in the DOM,
+ * handling various video formats, loading states, and network conditions. It includes
+ * advanced timeout protection to ensure progress tracking never gets stuck on problematic
+ * video sources, making it perfect for asset-heavy applications and media galleries.
  *
- * **How it works:**
- * 1. Scans all videos using `document.querySelectorAll('video')`
- * 2. For fully buffered videos: Immediately marks as loaded (readyState >= 4)
- * 3. For loading videos: Sets up event listeners to track completion
- * 4. Applies 7-second timeout to prevent stuck videos from blocking progress
- * 5. Updates React state in real-time as videos become playable, fail, or timeout
+ * **Key Features:**
+ * - **Automatic Detection**: Uses `document.querySelectorAll('video')` for complete coverage
+ * - **Intelligent State Tracking**: Monitors HTML5 video readyState for accurate progress
+ * - **Timeout Protection**: 7-second failsafe prevents stuck progress on broken videos
+ * - **Concurrent Loading**: Handles multiple videos loading simultaneously without conflicts
+ * - **Error Resilience**: Failed/timed-out videos don't prevent overall completion
  *
- * **Video readyState values:**
- * - `0` HAVE_NOTHING - No data loaded
- * - `1` HAVE_METADATA - Basic video info loaded
- * - `2` HAVE_CURRENT_DATA - Current frame loaded
- * - `3` HAVE_FUTURE_DATA - Enough data for immediate playbook
- * - `4` HAVE_ENOUGH_DATA - Enough data to play through completely
+ * **Video Loading Process:**
+ * 1. **Detection Phase**: Scans DOM for all `<video>` elements regardless of source
+ * 2. **State Assessment**: Checks each video's current readyState (0-4 scale)
+ * 3. **Event Monitoring**: Sets up listeners for videos still loading
+ * 4. **Timeout Racing**: Races actual loading against 7-second timeout
+ * 5. **State Updates**: Updates parent component state as videos complete or fail
  *
- * **Timeout Protection:**
- * Videos that don't load or fail within 7 seconds are automatically marked as "failed"
- * to ensure progress tracking always reaches 100%. This handles edge cases like:
- * - Corrupted video sources that never trigger error events
- * - Network timeouts that leave videos in pending state
- * - Malformed `<source>` elements with invalid URLs
+ * **HTML5 Video readyState Reference:**
+ * - `0` **HAVE_NOTHING** - No video data available
+ * - `1` **HAVE_METADATA** - Video metadata loaded (duration, dimensions, etc.)
+ * - `2` **HAVE_CURRENT_DATA** - Current frame data available
+ * - `3` **HAVE_FUTURE_DATA** - Enough data for immediate playback
+ * - `4` **HAVE_ENOUGH_DATA** - Sufficient data for uninterrupted playback
  *
- * @param setLoadedCount - React state setter function to increment successful video loads
- * @param setFailedCount - React state setter function to increment failed video loads
+ * **Timeout Protection Rationale:**
+ * The 7-second timeout handles real-world edge cases that can break asset loading:
+ * - **Malformed Sources**: `<source>` tags with invalid URLs that never error
+ * - **Network Timeouts**: Slow connections that hang without failing
+ * - **CORS Issues**: Cross-origin videos that silently fail to load
+ * - **Corrupted Files**: Videos with damaged headers that confuse browsers
+ * - **Server Issues**: Temporary server problems causing indefinite loading
  *
- * @returns Object containing the total number of videos found
- * @returns returns.totalVideos - Total count of `<video>` elements detected on the page
+ * **Performance Considerations:**
+ * - **Memory Efficient**: Uses `{ once: true }` event listeners to prevent memory leaks
+ * - **Non-blocking**: Asynchronous processing doesn't impact page rendering
+ * - **Scalable**: Handles dozens of videos without performance degradation
+ * - **Resource Aware**: Timeout prevents infinite resource consumption
+ *
+ * @param setLoadedCount - React state setter to increment successful video load count
+ * @param setFailedCount - React state setter to increment failed video load count
+ *
+ * @returns Object containing the total number of video elements detected
+ * @returns returns.totalVideos - Count of all `<video>` elements found on the page
  *
  * @example
  * ```typescript
- * // Basic usage in a React hook
- * const [loadedCount, setLoadedCount] = useState(0);
- * const [failedCount, setFailedCount] = useState(0);
+ * // Basic integration with React state management
+ * function VideoTracker() {
+ *   const [loadedCount, setLoadedCount] = useState(0);
+ *   const [failedCount, setFailedCount] = useState(0);
  *
- * const { totalVideos } = scanVideos(setLoadedCount, setFailedCount);
- * console.log(`Found ${totalVideos} videos to track`);
+ *   const { totalVideos } = scanVideos(setLoadedCount, setFailedCount);
+ *
+ *   return (
+ *     <div>
+ *       Videos: {loadedCount} loaded, {failedCount} failed of {totalVideos} total
+ *     </div>
+ *   );
+ * }
  * ```
  *
  * @example
  * ```typescript
- * // The state setters will be called automatically as videos load or timeout:
- * // - setLoadedCount(prev => prev + 1) for each video that becomes playable
- * // - setFailedCount(prev => prev + 1) for each video that fails or times out after 7s
+ * // Usage within asset loading system
+ * useEffect(() => {
+ *   const { totalVideos } = scanVideos(
+ *     (count) => setTotalLoaded(prev => prev + count),
+ *     (count) => setTotalFailed(prev => prev + count)
+ *   );
+ *   setTotalAssets(prev => prev + totalVideos);
+ * }, []);
  * ```
  *
  * @example
  * ```html
- * <!-- These video elements will be automatically detected -->
- * <video src="intro.mp4" controls></video>
- * <video preload="auto">
+ * <!-- All these video types are automatically detected -->
+ * <!-- Single source video -->
+ * <video src="presentation.mp4" controls></video>
+ *
+ * <!-- Multi-source video with fallbacks -->
+ * <video controls preload="metadata">
  *   <source src="demo.webm" type="video/webm">
  *   <source src="demo.mp4" type="video/mp4">
+ *   <source src="demo.ogv" type="video/ogg">
  * </video>
- * <!-- Even problematic videos won't block progress -->
- * <video>
- *   <source src="http://broken-url.com/video.mp4" type="video/mp4">
+ *
+ * <!-- Background video (common in modern web design) -->
+ * <video autoplay muted loop>
+ *   <source src="hero-background.mp4" type="video/mp4">
+ * </video>
+ *
+ * <!-- Even problematic videos won't block overall progress -->
+ * <video controls>
+ *   <source src="https://broken-cdn.com/missing-video.mp4" type="video/mp4">
  * </video>
  * ```
  *
+ * @example
+ * ```typescript
+ * // Real-world usage patterns and expected results
+ *
+ * // Scenario 1: Fast-loading cached videos
+ * // Result: Immediate "loaded" state for readyState >= 4 videos
+ *
+ * // Scenario 2: Large videos on slow connections
+ * // Result: Proper event-based tracking until canplay or 7s timeout
+ *
+ * // Scenario 3: Broken video URLs
+ * // Result: Either immediate error event or 7s timeout → marked as failed
+ *
+ * // Scenario 4: Mixed video states
+ * // Result: Each video tracked independently, progress updates in real-time
+ * ```
+ *
+ * **Browser Compatibility:**
+ * - **Modern browsers**: Full support (Chrome 4+, Firefox 3.5+, Safari 4+, Edge 12+)
+ * - **HTML5 Video API**: Uses standard readyState and event APIs
+ * - **Promise support**: Requires ES6 Promise support (polyfill available for older browsers)
+ *
  * @since 1.1.0
  * @author Ridha Bennafla <https://github.com/riidha-bennafla>
+ * @see {@link https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement/readyState} HTML5 Video readyState
+ * @see {@link https://developer.mozilla.org/en-US/docs/Web/HTML/Element/video} HTML Video Element
  */
-
 export function scanVideos(
-  setLoadedCount: React.Dispatch<React.SetStateAction<number>>,
-  setFailedCount: React.Dispatch<React.SetStateAction<number>>
+  setLoadedCount: Dispatch<SetStateAction<number>>,
+  setFailedCount: Dispatch<SetStateAction<number>>
 ): { totalVideos: number } {
-  // Convert NodeList to Array for easier manipulation
+  // Convert NodeList to Array for modern JavaScript array methods
   const videos = Array.from(document.querySelectorAll("video"));
   const totalVideos = videos.length;
 
   /**
-   * Create a Promise race for each video between loading completion and timeout
-   * Each video gets its own race to prevent one slow/broken video from affecting others
+   * Create individual Promise races for each video element
+   *
+   * This approach ensures that:
+   * - Each video is tracked independently
+   * - One slow/broken video doesn't affect others
+   * - Concurrent loading is properly handled
+   * - State updates happen as videos complete individually
    */
-  const loadVideos = videos.map((video) => {
+  const videoPromises = videos.map((video) => {
     /**
-     * Primary promise: Track natural video loading progression
-     * Resolves when the video becomes playable or encounters an error
+     * Primary loading promise: Natural video loading progression
+     *
+     * Monitors the video's natural loading process through HTML5 media events
+     * and readyState progression. This represents the "happy path" where videos
+     * load successfully within reasonable timeframes.
      */
-    const videoPromise = new Promise<"loaded" | "failed">((resolve) => {
+    const videoLoadingPromise = new Promise<"loaded" | "failed">((resolve) => {
       /**
-       * Check if video has enough data to play through
-       * readyState >= 4 (HAVE_ENOUGH_DATA) means the video is ready for smooth playback
+       * Fast path: Check if video is already sufficiently loaded
+       *
+       * readyState >= 4 (HAVE_ENOUGH_DATA) indicates the browser has downloaded
+       * enough video data to play through to completion without buffering.
+       * This commonly occurs with:
+       * - Cached videos from previous page visits
+       * - Small video files that load very quickly
+       * - Videos with aggressive preloading (preload="auto")
        */
       if (video.readyState >= 4) {
         resolve("loaded");
-      } else {
-        /**
-         * For videos still loading (readyState 0-3), set up event listeners:
-         * - 'canplay': Video has enough data to start playing (but may need to buffer during playback)
-         * - 'error': Video failed to load (network error, unsupported format, etc.)
-         * - { once: true }: Automatically remove listeners after first trigger to prevent memory leaks
-         */
-        video.addEventListener("canplay", () => resolve("loaded"), {
-          once: true,
-        });
-        video.addEventListener("error", () => resolve("failed"), {
-          once: true,
-        });
+        return;
       }
+
+      /**
+       * Slow path: Set up event listeners for videos still loading
+       *
+       * For videos not yet fully buffered (readyState 0-3), we monitor
+       * HTML5 media events to detect when they become playable or encounter errors.
+       */
+
+      /**
+       * Success event: 'canplay'
+       * Fires when the browser can start playing the video, even if not fully downloaded.
+       * This is the most reliable indicator that a video is "ready" for user interaction.
+       */
+      video.addEventListener("canplay", () => resolve("loaded"), {
+        once: true,
+      });
+
+      /**
+       * Failure event: 'error'
+       * Fires when video loading encounters an error such as:
+       * - 404 Not Found (missing video file)
+       * - Network connectivity issues
+       * - Unsupported video format/codec
+       * - CORS (Cross-Origin Resource Sharing) violations
+       * - Corrupted video file data
+       */
+      video.addEventListener("error", () => resolve("failed"), { once: true });
     });
 
     /**
-     * Timeout promise: Fail-safe mechanism for problematic videos
+     * Timeout promise: Failsafe for problematic videos
      *
-     * After 7 seconds, automatically resolves to "failed" to prevent progress tracking
-     * from getting stuck on videos that never load or fail naturally.
+     * Critical for preventing progress tracking from getting permanently stuck.
+     * After 7 seconds, automatically marks the video as "failed" regardless of
+     * its actual loading state. This timeout duration is chosen based on:
      *
-     * This handles edge cases like:
-     * - Videos with malformed <source> elements that don't trigger error events
-     * - Network timeouts that leave videos in perpetual loading state
-     * - CORS issues that prevent proper error reporting
-     * - Corrupted video files that confuse browser loading mechanisms
+     * - **User Experience**: 7s is the maximum users will typically wait
+     * - **Network Realities**: Most video loading issues surface within 5-7 seconds
+     * - **Browser Behavior**: Some browser bugs never trigger error events
+     * - **Performance Impact**: Prevents indefinite resource consumption
      */
     const timeoutPromise = new Promise<"loaded" | "failed">((resolve) =>
       setTimeout(() => resolve("failed"), 7000)
     );
 
     /**
-     * Promise.race(): Whichever resolves first (loading or timeout) wins
-     * This ensures every video eventually resolves, preventing infinite loading states
+     * Promise.race(): First resolution wins
+     *
+     * This creates a race condition between:
+     * 1. Natural video loading (success or error events)
+     * 2. 7-second timeout (automatic failure)
+     *
+     * Whichever Promise resolves first determines the final result,
+     * ensuring every video eventually reaches a concluded state.
      */
-    return Promise.race([videoPromise, timeoutPromise]);
+    return Promise.race([videoLoadingPromise, timeoutPromise]);
   });
 
   /**
    * Handle promise resolutions and update React state
-   * Each promise resolves independently as its corresponding video loads, fails, or times out
+   *
+   * Each video promise resolves independently as its loading completes,
+   * fails, or times out. This enables real-time progress updates as
+   * individual videos finish loading.
    */
-  loadVideos.forEach((loadVideo) => {
-    loadVideo.then((result) => {
+  videoPromises.forEach((videoPromise) => {
+    videoPromise.then((result) => {
       if (result === "loaded") {
         /**
-         * Use functional state update to safely handle concurrent updates
-         * This prevents race conditions when multiple videos load simultaneously
+         * Success case: Video became playable within timeout period
+         *
+         * Uses functional state update for thread-safe concurrent modifications.
+         * This prevents race conditions when multiple videos complete simultaneously.
          */
-        setLoadedCount((prev) => prev + 1);
+        setLoadedCount((previousCount) => previousCount + 1);
       } else {
         /**
-         * Handle failed videos including:
-         * - Natural failures (network errors, unsupported formats, CORS issues)
-         * - Timeout failures (videos that took longer than 7 seconds)
-         * Both count toward progress completion to ensure 100% is always reachable
+         * Failure case: Video failed to load or exceeded timeout
+         *
+         * Both natural failures (network errors, format issues) and timeout failures
+         * count toward completion to ensure progress tracking always reaches 100%.
+         * This prevents stuck loading states that frustrate users.
          */
-        setFailedCount((prev) => prev + 1);
+        setFailedCount((previousCount) => previousCount + 1);
       }
     });
   });
 
-  // Return immediate scan results
+  /**
+   * Return immediate scan results
+   *
+   * The total count is available synchronously to initialize progress tracking,
+   * while individual video loading continues asynchronously in the background.
+   */
   return {
     /**
-     * Total number of <video> elements found via document.querySelectorAll('video')
-     * This represents the complete scope of videos to be tracked, including those that may timeout
+     * Total number of video elements detected via DOM query
+     *
+     * This represents the complete scope of videos being tracked,
+     * including those that may eventually timeout or fail to load.
      */
     totalVideos,
   };

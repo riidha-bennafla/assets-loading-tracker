@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { scanImages } from "../utils/imageScanner";
 import { scanVideos } from "../utils/videoScanner";
 import { scanAudios } from "../utils/audioScanner";
+import { scanFonts } from "../utils/fontScanner";
 
 /**
  * Configuration options for the useAssetLoader hook
@@ -11,13 +12,13 @@ interface AssetLoaderOptions {
    * Asset types to scan for loading tracking
    * @default "all" - Scans all supported asset types
    */
-  scan?: "all" | ("images" | "videos" | "audios")[];
+  scan?: "all" | ("images" | "videos" | "audios" | "fonts")[];
 
   /**
    * Asset types to ignore during scanning
    * @default [] - No assets are ignored
    */
-  ignore?: ("images" | "videos" | "audios")[];
+  ignore?: ("images" | "videos" | "audios" | "fonts")[];
 }
 
 /**
@@ -45,49 +46,61 @@ interface AssetLoaderReturn {
  *
  * This hook provides real-time monitoring of asset loading without requiring developers
  * to manually specify which assets to track. It automatically scans the DOM for assets
- * and reports progress as they load or fail.
+ * and reports progress as they load or fail, making it perfect for creating loading
+ * screens, progress bars, and optimizing user experience.
  *
- * **Perfect for:**
- * - Splash screen loaders
- * - Progress bars for asset-heavy pages
- * - Performance monitoring
- * - User experience optimization
+ * **Perfect Use Cases:**
+ * - Splash screen loaders that disappear when assets are ready
+ * - Progress bars for asset-heavy pages (portfolios, galleries, media sites)
+ * - Performance monitoring and user experience optimization
+ * - Preventing layout shifts by waiting for critical assets
  *
- * **Currently supports:**
- * - Images (`<img>` elements) - Automatically detects all images in `document.images`
- * - Videos (`<video>` elements) - Automatically detects all videos with timeout protection
- * - Audio (`<audio>` elements) - Automatically detects all audio files with timeout protection
+ * **Fully Supported Asset Types:**
+ * - **Images** (`<img>` elements) - Automatically detects all images via document.images
+ * - **Videos** (`<video>` elements) - Tracks video loading with timeout protection
+ * - **Audio** (`<audio>` elements) - Monitors audio file loading with timeout protection
+ * - **Fonts** (Web fonts) - Detects @font-face, Google Fonts, and custom fonts
  *
- * **Key Features:**
- * - **Automatic Detection**: No manual asset specification required
- * - **Timeout Protection**: 7-second timeout prevents stuck progress on problematic media assets
- * - **Real-time Progress**: Live updates as assets load or fail
- * - **Error Resilience**: Failed assets don't prevent completion
+ * **Advanced Features:**
+ * - **Automatic Detection**: Zero manual configuration - scans entire DOM automatically
+ * - **Timeout Protection**: 7-second timeout prevents stuck progress on problematic assets
+ * - **Real-time Progress**: Live updates as assets load, fail, or timeout
+ * - **Error Resilience**: Failed/timed-out assets don't prevent completion (progress still reaches 100%)
+ * - **Flexible Configuration**: Choose specific asset types or ignore certain categories
+ * - **Performance Optimized**: Efficient scanning with minimal impact on page load times
  *
- * **Coming soon:**
- * - Fonts, CSS files, and more asset types
+ * **Coming Soon:**
+ * - CSS stylesheet loading detection
+ * - PDF and document file tracking
+ * - Dynamic import monitoring
+ * - Custom asset type support
  *
- * @param options - Configuration options for asset scanning behavior
- * @param options.scan - Specify which asset types to track ('all' or array of specific types)
+ * @param options - Optional configuration object for customizing scanning behavior
+ * @param options.scan - Specify which asset types to track ("all" or array of specific types)
  * @param options.ignore - Specify which asset types to skip during scanning
  *
- * @returns Object containing real-time asset loading state and progress
+ * @returns Object containing real-time asset loading state and progress information
  *
  * @example
  * ```tsx
- * // Basic usage - track all assets automatically
+ * // Basic usage - automatically track all assets
  * function LoadingScreen() {
  *   const { progress, isComplete, loadedCount, totalCount } = useAssetLoader();
  *
  *   if (isComplete) {
- *     return <div>All assets loaded! Ready to go!</div>;
+ *     return <div>All assets loaded! Welcome! 🎉</div>;
  *   }
  *
  *   return (
- *     <div>
- *       <div>Loading... {progress}%</div>
- *       <div>{loadedCount} of {totalCount} assets loaded</div>
- *       <progress value={progress} max={100} />
+ *     <div className="loading-screen">
+ *       <h1>Loading your experience...</h1>
+ *       <div className="progress-bar">
+ *         <div
+ *           className="progress-fill"
+ *           style={{ width: `${progress}%` }}
+ *         />
+ *       </div>
+ *       <p>{loadedCount} of {totalCount} assets ready</p>
  *     </div>
  *   );
  * }
@@ -95,44 +108,37 @@ interface AssetLoaderReturn {
  *
  * @example
  * ```tsx
- * // Advanced usage - with configuration options
- * function CustomLoader() {
- *   const { progress, failedCount, isComplete } = useAssetLoader({
- *     scan: ['images', 'videos'],  // Only track images and videos
- *     ignore: ['audios']           // Skip audio files
+ * // Advanced usage - selective asset tracking with error handling
+ * function SmartLoader() {
+ *   const {
+ *     progress,
+ *     loadedCount,
+ *     totalCount,
+ *     failedCount,
+ *     isComplete
+ *   } = useAssetLoader({
+ *     scan: ['images', 'fonts'],  // Only track images and fonts
+ *     ignore: ['videos']          // Skip video files (maybe they're not critical)
  *   });
  *
  *   return (
- *     <div>
- *       <div>Progress: {progress}%</div>
- *       {failedCount > 0 && <div>Warning: {failedCount} assets failed</div>}
- *       {isComplete && <div>Loading complete!</div>}
- *     </div>
- *   );
- * }
- * ```
- *
- * @example
- * ```tsx
- * // Splash screen with error handling and timeout protection
- * function RobustSplashScreen() {
- *   const { progress, loadedCount, totalCount, failedCount, isComplete } = useAssetLoader();
- *
- *   return (
- *     <div className="splash-screen">
- *       <h1>Loading Your Experience</h1>
- *       <div className="progress-bar">
- *         <div className="progress-fill" style={{ width: `${progress}%` }} />
- *       </div>
+ *     <div className="smart-loader">
  *       <div className="status">
- *         {loadedCount} loaded, {failedCount} failed of {totalCount} total
+ *         Loading: {progress.toFixed(1)}% complete
+ *       </div>
+ *       <div className="details">
+ *         ✅ {loadedCount} loaded
+ *         {failedCount > 0 && ` • ⚠️ ${failedCount} failed`}
+ *         {` • 📦 ${totalCount} total`}
  *       </div>
  *       {failedCount > 0 && (
  *         <div className="warning">
  *           Some assets couldn't load, but we'll continue anyway!
  *         </div>
  *       )}
- *       {isComplete && <div className="success">Ready to launch! 🚀</div>}
+ *       {isComplete && (
+ *         <div className="success">Ready to explore! 🚀</div>
+ *       )}
  *     </div>
  *   );
  * }
@@ -140,42 +146,98 @@ interface AssetLoaderReturn {
  *
  * @example
  * ```tsx
- * // Splash screen that disappears when loading is done
+ * // Conditional app rendering - classic splash screen pattern
  * function App() {
- *   const { isComplete } = useAssetLoader();
+ *   const { isComplete, progress } = useAssetLoader();
  *
+ *   // Show loading screen until all assets are ready
  *   if (!isComplete) {
- *     return <SplashScreen />;
+ *     return (
+ *       <SplashScreen
+ *         progress={progress}
+ *         message="Preparing your experience..."
+ *       />
+ *     );
  *   }
  *
+ *   // Render main application only when assets are loaded
  *   return <MainApplication />;
  * }
  * ```
  *
+ * @example
+ * ```tsx
+ * // Performance monitoring and analytics
+ * function PerformanceAwareApp() {
+ *   const { progress, loadedCount, failedCount, isComplete } = useAssetLoader();
+ *
+ *   useEffect(() => {
+ *     if (isComplete) {
+ *       // Send analytics data
+ *       analytics.track('Assets Loaded', {
+ *         totalLoaded: loadedCount,
+ *         totalFailed: failedCount,
+ *         loadTime: Date.now() - startTime
+ *       });
+ *     }
+ *   }, [isComplete, loadedCount, failedCount]);
+ *
+ *   return <YourApp />;
+ * }
+ * ```
+ *
+ * **Technical Implementation Notes:**
+ * - Runs asset detection once on component mount to prevent duplicate scanning
+ * - Uses React.useRef to prevent re-scanning during strict mode or re-renders
+ * - Employs functional state updates for thread-safe concurrent asset loading
+ * - Implements Promise.race() pattern for timeout protection on media assets
+ * - Optimized for both small sites (few assets) and large applications (hundreds of assets)
+ *
+ * **Browser Compatibility:**
+ * - Modern browsers with ES6+ support
+ * - Requires FontFace API support for font tracking (Chrome 35+, Firefox 41+, Safari 10+)
+ * - Gracefully degrades if specific APIs are unavailable
+ *
  * @since 1.1.0
  * @author Ridha Bennafla <https://github.com/riidha-bennafla>
+ * @see {@link https://www.npmjs.com/package/assets-loading-tracker} NPM Package
  */
 export function useAssetLoader(
-  options: AssetLoaderOptions = { scan: "all" }
+  options?: AssetLoaderOptions
 ): AssetLoaderReturn {
-  // Asset counting state
+  // ===== STATE MANAGEMENT =====
+
+  /** Total number of assets detected across all scanners */
   const [totalCount, setTotalCount] = useState(0);
+
+  /** Number of assets that have successfully loaded */
   const [loadedCount, setLoadedCount] = useState(0);
+
+  /** Number of assets that failed to load or timed out */
   const [failedCount, setFailedCount] = useState(0);
 
-  // Calculated state
+  /** Loading progress percentage (0-100) calculated from counts */
   const [progress, setProgress] = useState(0);
+
+  /** Whether all assets have finished loading (success + failure = total) */
   const [isComplete, setIsComplete] = useState(false);
 
-  // Prevent double-scanning during React strict mode or re-renders
+  // ===== REFS FOR OPTIMIZATION =====
+
+  /** Prevents duplicate scanning during React strict mode or component re-renders */
   const hasScanned = useRef(false);
 
-  // Track total number of assets
+  /** Accumulates total asset count across all scanner types */
   const totalAssets = useRef(0);
 
   /**
-   * Initial asset detection and scanning setup
-   * Runs once when the hook is first mounted
+   * Asset Detection and Scanning Phase
+   *
+   * Runs once on component mount to:
+   * 1. Parse configuration options with sensible defaults
+   * 2. Conditionally run each asset scanner based on user preferences
+   * 3. Accumulate total asset counts from all active scanners
+   * 4. Initialize the progress tracking system
    */
   useEffect(() => {
     // Prevent double-scanning during React strict mode or re-renders
@@ -184,77 +246,89 @@ export function useAssetLoader(
     }
     hasScanned.current = true;
 
-    // Extract configuration with defaults
-    const { scan = "all", ignore = [] } = options;
+    // Parse options with defaults: scan everything, ignore nothing
+    const { scan = "all", ignore = [] } = options || {};
 
-    // Determine if images should be scanned based on configuration
+    // ===== IMAGE SCANNING =====
     const shouldScanImages =
       (scan === "all" || scan.includes("images")) && !ignore.includes("images");
-
     if (shouldScanImages) {
       /**
-       * Start the image scanning process
-       * This will:
-       * 1. Detect all images on the page
-       * 2. Set up tracking for images still loading
-       * 3. Update state as images complete loading
+       * Detect and track all <img> elements on the page
+       * Uses document.images for efficient native detection
        */
       const { totalImages } = scanImages(setLoadedCount, setFailedCount);
       totalAssets.current += totalImages;
     }
 
-    // Determine if videos should be scanned based on configuration
+    // ===== VIDEO SCANNING =====
     const shouldScanVideos =
       (scan === "all" || scan.includes("videos")) && !ignore.includes("videos");
     if (shouldScanVideos) {
       /**
-       * Start the video scanning process
-       * This will:
-       * 1. Detect all videos on the page
-       * 2. Set up tracking for videos still loading with timeout protection
-       * 3. Update state as videos complete loading or timeout after 7 seconds
+       * Detect and track all <video> elements with timeout protection
+       * Monitors readyState and handles loading/error events
        */
       const { totalVideos } = scanVideos(setLoadedCount, setFailedCount);
       totalAssets.current += totalVideos;
     }
 
-    // Determine if audios should be scanned based on configuration
+    // ===== AUDIO SCANNING =====
     const shouldScanAudios =
       (scan === "all" || scan.includes("audios")) && !ignore.includes("audios");
     if (shouldScanAudios) {
       /**
-       * Start the audio scanning process
-       * This will:
-       * 1. Detect all audio elements on the page
-       * 2. Set up tracking for audio files still loading with timeout protection
-       * 3. Update state as audio files complete loading or timeout after 7 seconds
+       * Detect and track all <audio> elements with timeout protection
+       * Similar to video scanning but optimized for audio-specific states
        */
       const { totalAudios } = scanAudios(setLoadedCount, setFailedCount);
       totalAssets.current += totalAudios;
     }
 
-    // Set the total asset count
+    // ===== FONT SCANNING =====
+    const shouldScanFonts =
+      (scan === "all" || scan.includes("fonts")) && !ignore.includes("fonts");
+    if (shouldScanFonts) {
+      /**
+       * Detect and track all web fonts using FontFace API
+       * Handles @font-face declarations, Google Fonts, and custom fonts
+       */
+      const { totalFonts } = scanFonts(setLoadedCount, setFailedCount);
+      totalAssets.current += totalFonts;
+    }
+
+    // Initialize total count to trigger progress calculations
     setTotalCount(totalAssets.current);
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty dependency array - only run once on mount
+  }, []); // Empty dependency array - run once on mount only
 
   /**
-   * Progress calculation and completion detection
-   * Recalculates whenever any count changes
+   * Progress Calculation and Completion Detection
+   *
+   * Recalculates progress percentage and completion status whenever
+   * asset counts change. This provides real-time feedback as assets
+   * finish loading or fail.
    */
   useEffect(() => {
-    // Only calculate progress if we have assets to track
+    // Only calculate if we have assets to track
     if (totalCount > 0) {
-      // Calculate progress percentage (0-100)
+      // Calculate progress: (completed assets / total assets) * 100
+      // Completed = successfully loaded + failed (both count as "finished")
       const newProgress = ((loadedCount + failedCount) / totalCount) * 100;
       setProgress(newProgress);
 
-      // Check if all assets are finished (either loaded or failed)
+      // Check completion: all assets have finished (either loaded or failed)
       const allAssetsFinished = loadedCount + failedCount === totalCount;
       setIsComplete(allAssetsFinished);
     }
   }, [loadedCount, failedCount, totalCount]); // Recalculate when any count changes
 
-  return { totalCount, loadedCount, failedCount, progress, isComplete };
+  return {
+    totalCount,
+    loadedCount,
+    failedCount,
+    progress,
+    isComplete,
+  };
 }
