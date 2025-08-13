@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { scanImages } from "../utils/imageScanner";
 import { scanVideos } from "../utils/videoScanner";
+import { scanAudios } from "../utils/audioScanner";
 
 /**
  * Configuration options for the useAssetLoader hook
@@ -10,13 +11,13 @@ interface AssetLoaderOptions {
    * Asset types to scan for loading tracking
    * @default "all" - Scans all supported asset types
    */
-  scan?: "all" | ("images" | "videos")[];
+  scan?: "all" | ("images" | "videos" | "audios")[];
 
   /**
    * Asset types to ignore during scanning
    * @default [] - No assets are ignored
    */
-  ignore?: ("images" | "videos")[];
+  ignore?: ("images" | "videos" | "audios")[];
 }
 
 /**
@@ -54,10 +55,17 @@ interface AssetLoaderReturn {
  *
  * **Currently supports:**
  * - Images (`<img>` elements) - Automatically detects all images in `document.images`
- * - Videos (`<video>` elements) - Automatically detects all videos in `document.querySelectorAll('video')`
+ * - Videos (`<video>` elements) - Automatically detects all videos with timeout protection
+ * - Audio (`<audio>` elements) - Automatically detects all audio files with timeout protection
+ *
+ * **Key Features:**
+ * - **Automatic Detection**: No manual asset specification required
+ * - **Timeout Protection**: 7-second timeout prevents stuck progress on problematic media assets
+ * - **Real-time Progress**: Live updates as assets load or fail
+ * - **Error Resilience**: Failed assets don't prevent completion
  *
  * **Coming soon:**
- * - Fonts, Audio files, and more asset types
+ * - Fonts, CSS files, and more asset types
  *
  * @param options - Configuration options for asset scanning behavior
  * @param options.scan - Specify which asset types to track ('all' or array of specific types)
@@ -90,8 +98,8 @@ interface AssetLoaderReturn {
  * // Advanced usage - with configuration options
  * function CustomLoader() {
  *   const { progress, failedCount, isComplete } = useAssetLoader({
- *     scan: ['images'],  // Only track images
- *     ignore: []         // Don't ignore anything
+ *     scan: ['images', 'videos'],  // Only track images and videos
+ *     ignore: ['audios']           // Skip audio files
  *   });
  *
  *   return (
@@ -99,6 +107,32 @@ interface AssetLoaderReturn {
  *       <div>Progress: {progress}%</div>
  *       {failedCount > 0 && <div>Warning: {failedCount} assets failed</div>}
  *       {isComplete && <div>Loading complete!</div>}
+ *     </div>
+ *   );
+ * }
+ * ```
+ *
+ * @example
+ * ```tsx
+ * // Splash screen with error handling and timeout protection
+ * function RobustSplashScreen() {
+ *   const { progress, loadedCount, totalCount, failedCount, isComplete } = useAssetLoader();
+ *
+ *   return (
+ *     <div className="splash-screen">
+ *       <h1>Loading Your Experience</h1>
+ *       <div className="progress-bar">
+ *         <div className="progress-fill" style={{ width: `${progress}%` }} />
+ *       </div>
+ *       <div className="status">
+ *         {loadedCount} loaded, {failedCount} failed of {totalCount} total
+ *       </div>
+ *       {failedCount > 0 && (
+ *         <div className="warning">
+ *           Some assets couldn't load, but we'll continue anyway!
+ *         </div>
+ *       )}
+ *       {isComplete && <div className="success">Ready to launch! 🚀</div>}
  *     </div>
  *   );
  * }
@@ -177,11 +211,26 @@ export function useAssetLoader(
        * Start the video scanning process
        * This will:
        * 1. Detect all videos on the page
-       * 2. Set up tracking for videos still loading
-       * 3. Update state as videos complete loading
+       * 2. Set up tracking for videos still loading with timeout protection
+       * 3. Update state as videos complete loading or timeout after 7 seconds
        */
       const { totalVideos } = scanVideos(setLoadedCount, setFailedCount);
       totalAssets.current += totalVideos;
+    }
+
+    // Determine if audios should be scanned based on configuration
+    const shouldScanAudios =
+      (scan === "all" || scan.includes("audios")) && !ignore.includes("audios");
+    if (shouldScanAudios) {
+      /**
+       * Start the audio scanning process
+       * This will:
+       * 1. Detect all audio elements on the page
+       * 2. Set up tracking for audio files still loading with timeout protection
+       * 3. Update state as audio files complete loading or timeout after 7 seconds
+       */
+      const { totalAudios } = scanAudios(setLoadedCount, setFailedCount);
+      totalAssets.current += totalAudios;
     }
 
     // Set the total asset count
