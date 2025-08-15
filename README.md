@@ -3,7 +3,7 @@
 > A zero-config React hook to track and display the loading progress of images, videos, audios, and fonts — automatically.
 
 [![npm version](https://img.shields.io/npm/v/assets-loading-tracker.svg)](https://www.npmjs.com/package/assets-loading-tracker)
-[![license](https://img.shields.io/npm/l/assets-loading-tracker.svg)](LICENSE)
+[![license](https://img.shields.io/npm/l/assets-loading-tracker.svg)](https://opensource.org/license/MIT)
 [![downloads](https://img.shields.io/npm/dm/assets-loading-tracker.svg)](https://www.npmjs.com/package/assets-loading-tracker)
 
 ![Demo](https://raw.githubusercontent.com/riidha-bennafla/assets-loading-tracker/main/docs/preloader-preview.gif)
