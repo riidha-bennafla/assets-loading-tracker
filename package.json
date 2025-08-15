@@ -1,20 +1,25 @@
 {
   "name": "assets-loading-tracker",
-  "version": "1.0.0",
-  "description": "A React hook for tracking asset loading progress (images, fonts, videos)",
+  "version": "1.1.1",
+  "description": "A zero-config React hook to automatically track and display loading progress for images, videos, audios, and fonts with TypeScript support.",
   "main": "dist/index.js",
+  "module": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
     "dist",
     "README.md",
     "LICENSE"
   ],
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "scripts": {
     "build": "tsc",
-    "test": "jest",
-    "test:watch": "jest --watch",
     "dev": "tsc --watch",
-    "prepublishOnly": "npm run build && npm test"
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "react",
@@ -28,25 +33,25 @@
     "fonts",
     "videos"
   ],
+  "bugs": {
+    "url": "https://github.com/riidha-bennafla/assets-loading-tracker/issues"
+  },
+  "sideEffects": false,
+  "engines": {
+    "node": ">=16"
+  },
   "author": "Bennafla Ridha <bennafla.riidha@gmail.com>",
   "license": "MIT",
-  "homepage": "https://github.com/riidha.bennafla/assets-loading-tracker",
+  "homepage": "https://github.com/riidha-bennafla/assets-loading-tracker",
   "repository": {
     "type": "git",
-    "url": "https://github.com/riidha.bennafla/assets-loading-tracker.git"
+    "url": "https://github.com/riidha-bennafla/assets-loading-tracker.git"
   },
   "peerDependencies": {
     "react": ">=16.8.0"
   },
   "devDependencies": {
-    "@testing-library/jest-dom": "^6.6.4",
-    "@testing-library/react": "^16.3.0",
-    "@types/jest": "^30.0.0",
     "@types/react": "^19.1.1",
-    "jest": "^30.0.0",
-    "jest-environment-jsdom": "^30.0.5",
-    "jsdom": "^26.1.0",
-    "ts-jest": "^29.4.1",
     "typescript": "^5.6.0"
   }
 }
